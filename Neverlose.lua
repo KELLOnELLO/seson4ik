@@ -1,13 +1,3 @@
---[[
-    Neverlose UI Library
-    Author: Void / Wzxx
-    Usage: local NL = loadstring(...)()
-           local win = NL:CreateWindow("Title")
-           local tab = win:CreateTab("Main")
-           local sec = tab:AddSection("General")
-           sec:AddToggle("Label", false, function(v) end)
-]]
-
 local NL = {}
 NL.__index = NL
 
@@ -917,4 +907,171 @@ function NL:CreateTab(name)
                 BackgroundColor3 = Theme.PanelLight,
                 BorderSizePixel = 0,
                 LayoutOrder = #page:GetChildren(),
-                Parent
+                Parent = page,
+            })
+            corner(row, 6)
+            stroke(row, Theme.Stroke, 1)
+
+            new("TextLabel", {
+                Text = label,
+                Font = Theme.FontMedium,
+                TextSize = 13,
+                TextColor3 = Theme.Text,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                BackgroundTransparency = 1,
+                Position = UDim2.new(0, 14, 0, 6),
+                Size = UDim2.new(1, -28, 0, 16),
+                Parent = row,
+            })
+
+            local box = new("TextBox", {
+                Text = tostring(default or ""),
+                Font = Theme.Font,
+                TextSize = 12,
+                TextColor3 = Theme.Text,
+                BackgroundColor3 = Theme.Panel,
+                BorderSizePixel = 0,
+                Position = UDim2.new(0, 14, 0, 26),
+                Size = UDim2.new(1, -28, 0, 18),
+                TextXAlignment = Enum.TextXAlignment.Left,
+                ClearTextOnFocus = false,
+                Parent = row,
+            })
+            corner(box, 4)
+            padding(box, 0, 0, 6, 6)
+
+            box.FocusLost:Connect(function()
+                if callback then pcall(callback, box.Text) end
+            end)
+
+            return {
+                Set = function(_, v) box.Text = tostring(v) end
+            }
+        end
+
+        -- Label
+        function section:AddLabel(title, defaultText)
+            local holder = new("Frame", {
+                Size = UDim2.new(1, 0, 0, 42),
+                BackgroundColor3 = Theme.PanelLight,
+                BorderSizePixel = 0,
+                LayoutOrder = #page:GetChildren(),
+                Parent = page,
+            })
+            corner(holder, 6)
+            stroke(holder, Theme.Stroke, 1)
+
+            local lbl = new("TextLabel", {
+                Text = defaultText or title or "",
+                Font = Theme.Font,
+                TextSize = 12,
+                TextColor3 = Theme.Text,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                TextYAlignment = Enum.TextYAlignment.Center,
+                BackgroundTransparency = 1,
+                Position = UDim2.new(0, 14, 0, 0),
+                Size = UDim2.new(1, -28, 1, 0),
+                TextWrapped = true,
+                Parent = holder,
+            })
+
+            return {
+                SetText = function(_, text) lbl.Text = text end,
+                Instance = holder,
+            }
+        end
+
+        -- Keybind
+        function section:AddKeybind(label, default, callback)
+            local key = default or Enum.KeyCode.RightShift
+            local listening = false
+
+            local row = new("TextButton", {
+                Text = "",
+                AutoButtonColor = false,
+                Size = UDim2.new(1, 0, 0, 34),
+                BackgroundColor3 = Theme.PanelLight,
+                BorderSizePixel = 0,
+                LayoutOrder = #page:GetChildren(),
+                Parent = page,
+            })
+            corner(row, 6)
+            stroke(row, Theme.Stroke, 1)
+
+            new("TextLabel", {
+                Text = label,
+                Font = Theme.FontMedium,
+                TextSize = 13,
+                TextColor3 = Theme.Text,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                BackgroundTransparency = 1,
+                Position = UDim2.new(0, 14, 0, 0),
+                Size = UDim2.new(0.5, 0, 1, 0),
+                Parent = row,
+            })
+
+            local keyLbl = new("TextLabel", {
+                Text = key.Name,
+                Font = Theme.FontBold,
+                TextSize = 12,
+                TextColor3 = Theme.Accent,
+                TextXAlignment = Enum.TextXAlignment.Right,
+                BackgroundTransparency = 1,
+                Position = UDim2.new(0.5, 0, 0, 0),
+                Size = UDim2.new(0.5, -14, 1, 0),
+                Parent = row,
+            })
+
+            row.MouseButton1Click:Connect(function()
+                listening = true
+                keyLbl.Text = "..."
+            end)
+
+            table.insert(self_.Connections, UserInputService.InputBegan:Connect(function(input, gpe)
+                if gpe then return end
+                if listening then
+                    if input.UserInputType == Enum.UserInputType.Keyboard then
+                        key = input.KeyCode
+                        keyLbl.Text = key.Name
+                        listening = false
+                        if callback then pcall(callback, key) end
+                    end
+                elseif input.KeyCode == key then
+                    if callback then pcall(callback, key) end
+                end
+            end))
+
+            return {
+                Get = function() return key end
+            }
+        end
+
+        return section
+    end
+
+    return tab
+end
+
+function NL:SelectTab(tab)
+    for _, t in ipairs(self.Tabs) do
+        t.Page.Visible = false
+        t.Indicator.Size = UDim2.new(0, 3, 0, 0)
+        tween(t.Button, 0.15, { BackgroundTransparency = 1 })
+        tween(t.Label, 0.15, { TextColor3 = Theme.SubText })
+    end
+    tab.Page.Visible = true
+    tween(tab.Button, 0.15, { BackgroundTransparency = 0, BackgroundColor3 = Theme.PanelActive })
+    tween(tab.Label, 0.15, { TextColor3 = Theme.Accent })
+    tween(tab.Indicator, 0.15, { Size = UDim2.new(0, 3, 0, 18) })
+    self.ActiveTab = tab
+end
+
+function NL:Destroy()
+    for _, c in ipairs(self.Connections) do
+        pcall(function() c:Disconnect() end)
+    end
+    if self.Blur then pcall(function() self.Blur:Destroy() end) end
+    if self.Gui then pcall(function() self.Gui:Destroy() end) end
+end
+
+return NL
