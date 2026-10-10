@@ -246,11 +246,18 @@ visuals:SetCallback("On3DUpdate", function(stats, itemsText)
     end
 end)
 
-farm:SetCallback("OnStatsUpdate", function()
-    if visuals:Is3DOff() then
-        visuals:Update3DOverlay(farm:GetStats(), farm:GetItemsListText())
-    end
-end)
+local statsLabel = statsSec:AddLabel("Session", "Собрано: 0 | ТП: 0\nПоследний: —")
+
+local function refreshStats()
+    local s = farm:GetStats()
+    local text = string.format(
+        "Собрано: %d | ТП: %d\nПоследний: %s",
+        s.totalPicked,
+        s.totalTPs,
+        s.lastPickedItem
+    )
+    statsLabel:SetText(text)
+end
 
 if farm.Config.FPSCap then farm:ApplyFPSCap(farm.Config.FPSCap) end
 if farm.Config.RenderDistance then farm:ApplyRenderDistance(farm.Config.RenderDistance) end
