@@ -1,3 +1,6 @@
+local KeySystem = loadstring(game:HttpGet("https://raw.githubusercontent.com/KELLOnELLO/lela/main/Key.lua?t=" .. os.time()))()
+
+local function startMain()
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -1005,3 +1008,12 @@ if farm then
 end
 
 print("[Void] Menu loaded. Press TAB or RightShift.")
+
+end
+
+local ks = KeySystem.new(function(key, info)
+    print("[Void] Access granted | Tier:", info.tier)
+    startMain()
+end)
+
+ks:Prompt()
