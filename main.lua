@@ -325,97 +325,13 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-local tabs = {}
-local activeTab = nil
-
-local function selectTab(tab)
-    for _, t in ipairs(tabs) do
-        t.Page.Visible = false
-        tween(t.Button, 0.15, { BackgroundColor3 = Theme.PanelLt, TextColor3 = Theme.Sub })
-    end
-    tab.Page.Visible = true
-    tween(tab.Button, 0.15, { BackgroundColor3 = Theme.Accent, TextColor3 = Color3.new(1, 1, 1) })
-    activeTab = tab
-end
-
-local function createTab(name)
-    local tab = { Name = name }
-
-    local textSize = TextService:GetTextSize(name, 13, FontMed, Vector2.new(1000, 40))
-    local btnWidth = math.max(textSize.X + 28, 70)
-
-    local btn = new("TextButton", {
-        Text = name,
-        Font = FontMed,
-        TextSize = 13,
-        TextColor3 = Theme.Sub,
-        BackgroundColor3 = Theme.PanelLt,
-        AutoButtonColor = false,
-        Size = UDim2.fromOffset(btnWidth, 32),
-        ZIndex = 12,
-        Parent = TabBar,
-    })
-    corner(btn, 6)
-
-    local page = new("ScrollingFrame", {
-        Size = UDim2.new(1, -16, 1, -16),
-        Position = UDim2.new(0, 8, 0, 8),
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        ScrollBarThickness = 3,
-        ScrollBarImageColor3 = Theme.Accent,
-        CanvasSize = UDim2.new(0, 0, 0, 0),
-        AutomaticCanvasSize = Enum.AutomaticSize.Y,
-        Visible = false,
-        ZIndex = 12,
-        Parent = Content,
-    })
-    local layout = new("UIListLayout", {
-        Padding = UDim.new(0, 6),
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        Parent = page,
-    })
-    new("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4), PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4), Parent = page })
-
-    tab.Button = btn
-    tab.Page = page
-    tab.Layout = layout
-
-    btn.MouseEnter:Connect(function()
-        if activeTab ~= tab then tween(btn, 0.1, { BackgroundColor3 = Theme.Hover }) end
-    end)
-    btn.MouseLeave:Connect(function()
-        if activeTab ~= tab then tween(btn, 0.1, { BackgroundColor3 = Theme.PanelLt }) end
-    end)
-    btn.MouseButton1Click:Connect(function() selectTab(tab) end)
-
-    table.insert(tabs, tab)
-    if #tabs == 1 then selectTab(tab) end
-
+local function makeSection(page, orderRef)
     local section = {}
-    local order = 0
-    local function nextOrder()
-        order = order + 1
-        return order
-    end
 
-    local header = new("Frame", {
-        Size = UDim2.new(1, 0, 0, 26),
-        BackgroundTransparency = 1,
-        LayoutOrder = nextOrder(),
-        Parent = page,
-    })
-    new("TextLabel", {
-        Text = string.upper(name),
-        Font = FontBold,
-        TextSize = 11,
-        TextColor3 = Theme.Accent,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        BackgroundTransparency = 1,
-        Position = UDim2.new(0, 4, 0, 6),
-        Size = UDim2.new(1, -8, 0, 16),
-        Parent = header,
-    })
+    local function nextOrder()
+        orderRef.n = orderRef.n + 1
+        return orderRef.n
+    end
 
     function section:AddToggle(label, default, callback)
         local state = default and true or false
@@ -609,6 +525,7 @@ local function createTab(name)
         options = options or {}
         local selected = default or options[1] or "None"
         local open = false
+        local itemHeight = 30
 
         local holder = new("Frame", {
             Size = UDim2.new(1, 0, 0, 36),
@@ -654,7 +571,7 @@ local function createTab(name)
         })
 
         local list = new("Frame", {
-            Size = UDim2.new(1, -16, 0, 0),
+            Size = UDim2.new(1, -16, 0, #options * (itemHeight + 4)),
             Position = UDim2.new(0, 8, 0, 40),
             BackgroundTransparency = 1,
             Parent = holder,
@@ -669,7 +586,7 @@ local function createTab(name)
                 TextColor3 = Theme.Sub,
                 BackgroundColor3 = Theme.Hover,
                 AutoButtonColor = false,
-                Size = UDim2.new(1, 0, 0, 26),
+                Size = UDim2.new(1, 0, 0, itemHeight),
                 Parent = list,
             })
             corner(oBtn, 4)
@@ -686,7 +603,7 @@ local function createTab(name)
 
         head.MouseButton1Click:Connect(function()
             open = not open
-            local target = open and UDim2.new(1, 0, 0, 36 + #options * 30 + 8) or UDim2.new(1, 0, 0, 36)
+            local target = open and UDim2.new(1, 0, 0, 36 + #options * (itemHeight + 4) + 8) or UDim2.new(1, 0, 0, 36)
             tween(holder, 0.2, { Size = target })
         end)
 
@@ -839,7 +756,99 @@ local function createTab(name)
         }
     end
 
+    function section:AddSection(title)
+        nextOrder()
+        local header = new("Frame", {
+            Size = UDim2.new(1, 0, 0, 26),
+            BackgroundTransparency = 1,
+            LayoutOrder = orderRef.n,
+            Parent = page,
+        })
+        new("TextLabel", {
+            Text = string.upper(tostring(title)),
+            Font = FontBold,
+            TextSize = 11,
+            TextColor3 = Theme.Accent,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0, 4, 0, 8),
+            Size = UDim2.new(1, -8, 0, 16),
+            Parent = header,
+        })
+        return makeSection(page, orderRef)
+    end
+
     return section
+end
+
+local tabs = {}
+local activeTab = nil
+
+local function selectTab(tab)
+    for _, t in ipairs(tabs) do
+        t.Page.Visible = false
+        tween(t.Button, 0.15, { BackgroundColor3 = Theme.PanelLt, TextColor3 = Theme.Sub })
+    end
+    tab.Page.Visible = true
+    tween(tab.Button, 0.15, { BackgroundColor3 = Theme.Accent, TextColor3 = Color3.new(1, 1, 1) })
+    activeTab = tab
+end
+
+local function createTab(name)
+    local tab = { Name = name }
+
+    local textSize = TextService:GetTextSize(name, 13, FontMed, Vector2.new(1000, 40))
+    local btnWidth = math.max(textSize.X + 28, 70)
+
+    local btn = new("TextButton", {
+        Text = name,
+        Font = FontMed,
+        TextSize = 13,
+        TextColor3 = Theme.Sub,
+        BackgroundColor3 = Theme.PanelLt,
+        AutoButtonColor = false,
+        Size = UDim2.fromOffset(btnWidth, 32),
+        ZIndex = 12,
+        Parent = TabBar,
+    })
+    corner(btn, 6)
+
+    local page = new("ScrollingFrame", {
+        Size = UDim2.new(1, -16, 1, -16),
+        Position = UDim2.new(0, 8, 0, 8),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ScrollBarThickness = 3,
+        ScrollBarImageColor3 = Theme.Accent,
+        CanvasSize = UDim2.new(0, 0, 0, 0),
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        Visible = false,
+        ZIndex = 12,
+        Parent = Content,
+    })
+    new("UIListLayout", {
+        Padding = UDim.new(0, 6),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Parent = page,
+    })
+    new("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4), PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4), Parent = page })
+
+    tab.Button = btn
+    tab.Page = page
+
+    btn.MouseEnter:Connect(function()
+        if activeTab ~= tab then tween(btn, 0.1, { BackgroundColor3 = Theme.Hover }) end
+    end)
+    btn.MouseLeave:Connect(function()
+        if activeTab ~= tab then tween(btn, 0.1, { BackgroundColor3 = Theme.PanelLt }) end
+    end)
+    btn.MouseButton1Click:Connect(function() selectTab(tab) end)
+
+    table.insert(tabs, tab)
+    if #tabs == 1 then selectTab(tab) end
+
+    local orderRef = { n = 0 }
+    return makeSection(page, orderRef)
 end
 
 local farmTab = createTab("Farm")
