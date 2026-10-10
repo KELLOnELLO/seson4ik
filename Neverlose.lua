@@ -22,6 +22,32 @@ local function new(instance, props)
     return obj
 end
 
+local function cleanupPrevious()
+    pcall(function()
+        local existing = CoreGui:FindFirstChild("NeverloseUI")
+        if existing then existing:Destroy() end
+    end)
+    pcall(function()
+        local pg = LocalPlayer:FindFirstChild("PlayerGui")
+        if pg then
+            local existing = pg:FindFirstChild("NeverloseUI")
+            if existing then existing:Destroy() end
+        end
+    end)
+    pcall(function()
+        local blur = Lighting:FindFirstChild("NL_Blur")
+        if blur then blur:Destroy() end
+    end)
+    pcall(function()
+        local old = CoreGui:FindFirstChild("VoidVisualsESP")
+        if old then old:Destroy() end
+    end)
+    pcall(function()
+        local old = CoreGui:FindFirstChild("Void3DOffOverlay")
+        if old then old:Destroy() end
+    end)
+end
+
 local Themes = {
     Background = Color3.fromRGB(14, 14, 17),
     Panel = Color3.fromRGB(20, 20, 24),
@@ -40,8 +66,10 @@ local Themes = {
 Neverlose.Theme = Themes
 
 function Neverlose:CreateWindow(title)
+    cleanupPrevious()
+
     local self = setmetatable({}, Neverlose)
-    self.Title = title or "Neverlose"
+    self.Title = title or "Void"
     self.Tabs = {}
     self.ActiveTab = nil
     self.Visible = true
@@ -84,7 +112,7 @@ function Neverlose:CreateWindow(title)
 
     self.Main = new("Frame", {
         Name = "Main",
-        Size = UDim2.fromOffset(700, 460),
+        Size = UDim2.fromOffset(720, 480),
         Position = UDim2.fromScale(0.5, 0.5),
         AnchorPoint = Vector2.new(0.5, 0.5),
         BackgroundColor3 = Themes.Background,
@@ -104,7 +132,7 @@ function Neverlose:CreateWindow(title)
         Parent = self.Main,
     })
     new("UICorner", { CornerRadius = UDim.new(0, 10), Parent = topBar })
-    local topBarCover = new("Frame", {
+    new("Frame", {
         Size = UDim2.new(1, 0, 0, 12),
         Position = UDim2.new(0, 0, 1, -12),
         BackgroundColor3 = Themes.Panel,
@@ -137,7 +165,7 @@ function Neverlose:CreateWindow(title)
     })
 
     local closeBtn = new("TextButton", {
-        Text = "✕",
+        Text = "X",
         Font = Enum.Font.GothamBold,
         TextSize = 14,
         TextColor3 = Themes.SubText,
@@ -174,7 +202,7 @@ function Neverlose:CreateWindow(title)
         Size = UDim2.new(1, -12, 1, -12),
         Position = UDim2.new(0, 6, 0, 6),
         BackgroundTransparency = 1,
-        ZIndex = 12,
+        ZIndex = 20,
         Parent = self.Sidebar,
     })
     new("UIListLayout", {
@@ -188,12 +216,11 @@ function Neverlose:CreateWindow(title)
         Name = "Content",
         Size = UDim2.new(1, -184, 1, -54),
         Position = UDim2.new(0, 176, 0, 46),
-        BackgroundColor3 = Themes.Panel,
+        BackgroundTransparency = 1,
         BorderSizePixel = 0,
         ZIndex = 11,
         Parent = self.Main,
     })
-    new("UICorner", { CornerRadius = UDim.new(0, 8), Parent = self.Content })
 
     local dragging, dragStart, startPos
     topBar.InputBegan:Connect(function(input)
@@ -285,7 +312,6 @@ end
 function Neverlose:CreateTab(name)
     local tab = {}
     tab.Name = name
-    tab.Buttons = {}
 
     local btn = new("TextButton", {
         Text = "  " .. name,
@@ -297,7 +323,7 @@ function Neverlose:CreateTab(name)
         AutoButtonColor = false,
         Size = UDim2.new(1, 0, 0, 34),
         TextXAlignment = Enum.TextXAlignment.Left,
-        ZIndex = 13,
+        ZIndex = 21,
         Parent = self.TabBar,
     })
     new("UICorner", { CornerRadius = UDim.new(0, 6), Parent = btn })
@@ -308,7 +334,7 @@ function Neverlose:CreateTab(name)
         AnchorPoint = Vector2.new(0, 0.5),
         BackgroundColor3 = Themes.Accent,
         BorderSizePixel = 0,
-        ZIndex = 14,
+        ZIndex = 22,
         Visible = false,
         Parent = btn,
     })
@@ -324,7 +350,7 @@ function Neverlose:CreateTab(name)
         CanvasSize = UDim2.new(0, 0, 0, 0),
         AutomaticCanvasSize = Enum.AutomaticSize.Y,
         Visible = false,
-        ZIndex = 13,
+        ZIndex = 12,
         Parent = self.Content,
     })
     new("UIListLayout", {
@@ -374,12 +400,15 @@ function Neverlose:CreateTab(name)
 
     function tab:AddSection(title)
         local section = {}
-        local holder = new("Frame", {
+        new("Frame", {
             Size = UDim2.new(1, 0, 0, 22),
             BackgroundTransparency = 1,
             LayoutOrder = #page:GetChildren(),
             Parent = page,
-        })
+        }).ChildAdded = nil
+        local holder = page:GetChildren()[#page:GetChildren()]
+        holder.Size = UDim2.new(1, 0, 0, 22)
+
         new("TextLabel", {
             Text = string.upper(title or "SECTION"),
             Font = Enum.Font.GothamBold,
@@ -452,7 +481,7 @@ function Neverlose:CreateTab(name)
                 if callback then callback(state) end
             end)
 
-            return { Set = function(v) if callback then callback(v) end end }
+            return { Set = function(_, v) if callback then callback(v) end end }
         end
 
         function section:AddSlider(label, min, max, default, callback)
@@ -508,22 +537,11 @@ function Neverlose:CreateTab(name)
             })
             new("UICorner", { CornerRadius = UDim.new(1, 0), Parent = barFill })
 
-            local knobSlider = new("Frame", {
-                Size = UDim2.fromOffset(12, 12),
-                AnchorPoint = Vector2.new(0.5, 0.5),
-                Position = UDim2.new((value - min) / (max - min), 0, 0.5, 0),
-                BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-                BorderSizePixel = 0,
-                Parent = barBg,
-            })
-            new("UICorner", { CornerRadius = UDim.new(1, 0), Parent = knobSlider })
-
             local dragging = false
             local function update(input)
                 local rel = math.clamp((input.Position.X - barBg.AbsolutePosition.X) / barBg.AbsoluteSize.X, 0, 1)
                 value = math.floor(min + (max - min) * rel)
                 barFill.Size = UDim2.new(rel, 0, 1, 0)
-                knobSlider.Position = UDim2.new(rel, 0, 0.5, 0)
                 valLbl.Text = tostring(value)
                 if callback then callback(value) end
             end
@@ -542,11 +560,10 @@ function Neverlose:CreateTab(name)
             end))
 
             return {
-                Set = function(v)
+                Set = function(_, v)
                     value = math.clamp(v, min, max)
                     local rel = (value - min) / (max - min)
                     barFill.Size = UDim2.new(rel, 0, 1, 0)
-                    knobSlider.Position = UDim2.new(rel, 0, 0.5, 0)
                     valLbl.Text = tostring(value)
                     if callback then callback(value) end
                 end
@@ -652,12 +669,6 @@ function Neverlose:CreateTab(name)
                     Parent = list,
                 })
                 new("UICorner", { CornerRadius = UDim.new(0, 4), Parent = optBtn })
-                optBtn.MouseEnter:Connect(function()
-                    TweenService:Create(optBtn, TweenInfo.new(0.1), { TextColor3 = Themes.Text }):Play()
-                end)
-                optBtn.MouseLeave:Connect(function()
-                    TweenService:Create(optBtn, TweenInfo.new(0.1), { TextColor3 = Themes.SubText }):Play()
-                end)
                 optBtn.MouseButton1Click:Connect(function()
                     selected = opt
                     valLbl.Text = tostring(opt)
@@ -674,7 +685,7 @@ function Neverlose:CreateTab(name)
             end)
 
             return {
-                Set = function(v)
+                Set = function(_, v)
                     selected = v
                     valLbl.Text = tostring(v)
                     if callback then callback(v) end
@@ -684,7 +695,7 @@ function Neverlose:CreateTab(name)
 
         function section:AddLabel(title, defaultText)
             local holder = new("Frame", {
-                Size = UDim2.new(1, 0, 0, 40),
+                Size = UDim2.new(1, 0, 0, 46),
                 BackgroundColor3 = Themes.PanelLight,
                 BorderSizePixel = 0,
                 LayoutOrder = #page:GetChildren(),
