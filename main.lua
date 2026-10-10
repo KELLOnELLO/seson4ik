@@ -1,26 +1,32 @@
 -- ============================================================
--- VOID | YBA — Single-file menu
+--   VOID | YBA - Single File Menu
+--   Author: Wzxx
+--   Repo:   KELLOnELLO/seson4ik
 -- ============================================================
 
+-- ==================== SERVICES ====================
 local Players          = game:GetService("Players")
 local RunService       = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService     = game:GetService("TweenService")
 local CoreGui          = game:GetService("CoreGui")
 local Lighting         = game:GetService("Lighting")
+local HttpService      = game:GetService("HttpService")
 local LocalPlayer      = Players.LocalPlayer
 
--- ==================== LOAD MODULES ====================
+-- ==================== MODULE LOADER ====================
+local Loaded = {}
 local function safeLoad(url, name)
     local bust = url .. "?t=" .. tostring(os.time())
     local ok, result = pcall(function()
         return loadstring(game:HttpGet(bust))()
     end)
     if ok and result then
-        print("[Void] Loaded:", name)
+        print("[Void] Loaded module:", name)
+        Loaded[name] = result
         return result
     else
-        warn("[Void] Failed to load:", name, result)
+        warn("[Void] Failed to load module:", name, result)
         return nil
     end
 end
@@ -35,20 +41,27 @@ local PlayerMod = safeLoad("https://raw.githubusercontent.com/KELLOnELLO/functio
 -- ==================== THEME ====================
 local T = {
     Bg         = Color3.fromRGB(15, 15, 19),
+    BgDeep     = Color3.fromRGB(11, 11, 14),
     Panel      = Color3.fromRGB(20, 20, 25),
     PanelLt    = Color3.fromRGB(28, 28, 34),
     PanelHover = Color3.fromRGB(36, 36, 44),
     Stroke     = Color3.fromRGB(45, 45, 55),
     Text       = Color3.fromRGB(235, 235, 240),
     Sub        = Color3.fromRGB(130, 130, 145),
+    Muted      = Color3.fromRGB(90, 90, 105),
     Accent     = Color3.fromRGB(155, 89, 255),
+    AccentDim  = Color3.fromRGB(110, 60, 190),
     Red        = Color3.fromRGB(220, 70, 70),
+    Green      = Color3.fromRGB(80, 200, 120),
+    Yellow     = Color3.fromRGB(220, 190, 70),
 }
 
 -- ==================== HELPERS ====================
 local function new(cls, props)
     local o = Instance.new(cls)
-    for k, v in pairs(props or {}) do o[k] = v end
+    for k, v in pairs(props or {}) do
+        pcall(function() o[k] = v end)
+    end
     return o
 end
 
@@ -56,51 +69,70 @@ local function corner(p, r)
     return new("UICorner", { CornerRadius = UDim.new(0, r or 6), Parent = p })
 end
 
-local function stroke(p)
-    return new("UIStroke", { Color = T.Stroke, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = p })
+local function stroke(p, color, thickness)
+    return new("UIStroke", {
+        Color = color or T.Stroke,
+        Thickness = thickness or 1,
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+        Parent = p,
+    })
 end
 
 local function tween(o, t, props)
-    TweenService:Create(o, TweenInfo.new(t, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props):Play()
+    pcall(function()
+        TweenService:Create(o, TweenInfo.new(t or 0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props):Play()
+    end)
 end
 
 local function safeParent(g)
     pcall(function() g.Parent = CoreGui end)
-    if not g.Parent then g.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+    if not g.Parent then
+        pcall(function() g.Parent = LocalPlayer:WaitForChild("PlayerGui") end)
+    end
 end
 
--- cleanup previous
-pcall(function()
+local function try(fn, name)
+    local ok, err = pcall(fn)
+    if not ok then
+        warn("[Void] " .. tostring(name) .. ":", err)
+    end
+    return ok
+end
+
+-- ==================== CLEANUP ====================
+try(function()
     for _, n in ipairs({"VoidYBA", "VoidVisualsESP", "Void3DOffOverlay", "NeverloseUI"}) do
         local a = CoreGui:FindFirstChild(n); if a then a:Destroy() end
         local pg = LocalPlayer:FindFirstChild("PlayerGui")
-        if pg then local b = pg:FindFirstChild(n); if b then b:Destroy() end end
+        if pg then
+            local b = pg:FindFirstChild(n); if b then b:Destroy() end
+        end
     end
     local bl = Lighting:FindFirstChild("NL_Blur"); if bl then bl:Destroy() end
-end)
+    local snow = CoreGui:FindFirstChild("VoidSnow"); if snow then snow:Destroy() end
+end, "cleanup")
 
 -- ==================== MODULE INIT ====================
 local farm, invis, sf, weather, visuals, playerMod
-local function try(fn, n) local ok, e = pcall(fn); if not ok then warn("[Void]", n, e) end end
 
 if AutoFarm then try(function() farm = AutoFarm.new() end, "farm.new") end
 if farm then
-    try(function() farm:LoadConfig() end, "LoadConfig")
-    try(function() farm:SkipLoading() end, "SkipLoading")
-    try(function() farm:EnableKeyBypass() end, "KeyBypass")
-    try(function() farm:SetCharacterRespawnHandler() end, "RespawnHandler")
+    try(function() farm:LoadConfig() end, "farm:LoadConfig")
+    try(function() farm:SkipLoading() end, "farm:SkipLoading")
+    try(function() farm:EnableKeyBypass() end, "farm:EnableKeyBypass")
+    try(function() farm:SetCharacterRespawnHandler() end, "farm:Respawn")
 end
 if Invis then try(function() invis = Invis.new() end, "invis.new") end
 if invis then try(function() invis:HookRespawn() end, "invis:HookRespawn") end
 if SF then try(function() sf = SF.new() end, "sf.new") end
 if sf then try(function() sf:Setup() end, "sf:Setup") end
 if Weather then try(function() weather = Weather.new() end, "weather.new") end
-if weather then try(function() weather:WaitForWeatherValue(10) end, "Weather:Wait") end
+if weather then try(function() weather:WaitForWeatherValue(10) end, "weather:Wait") end
 if Visuals then try(function() visuals = Visuals.new() end, "visuals.new") end
 if PlayerMod then try(function() playerMod = PlayerMod.new() end, "playerMod.new") end
 if playerMod then try(function() playerMod:HookRespawn() end, "playerMod:Respawn") end
 
--- ==================== GUI ====================
+-- ==================== GUI ROOT ====================
 local Blur = new("BlurEffect", { Name = "NL_Blur", Size = 0, Parent = Lighting })
 
 local Gui = new("ScreenGui", {
@@ -113,6 +145,7 @@ local Gui = new("ScreenGui", {
 safeParent(Gui)
 
 local Darken = new("Frame", {
+    Name = "Darken",
     Size = UDim2.fromScale(1, 1),
     BackgroundColor3 = Color3.new(0, 0, 0),
     BackgroundTransparency = 0.55,
@@ -122,6 +155,7 @@ local Darken = new("Frame", {
 })
 
 local Snow = new("Frame", {
+    Name = "Snow",
     Size = UDim2.fromScale(1, 1),
     BackgroundTransparency = 1,
     ZIndex = 2,
@@ -129,7 +163,8 @@ local Snow = new("Frame", {
 })
 
 local Main = new("Frame", {
-    Size = UDim2.fromOffset(760, 500),
+    Name = "Main",
+    Size = UDim2.fromOffset(780, 520),
     Position = UDim2.fromScale(0.5, 0.5),
     AnchorPoint = Vector2.new(0.5, 0.5),
     BackgroundColor3 = T.Bg,
@@ -137,11 +172,13 @@ local Main = new("Frame", {
     ZIndex = 10,
     Parent = Gui,
 })
-corner(Main, 10); stroke(Main)
+corner(Main, 10)
+stroke(Main, T.Stroke)
 
--- Top bar
+-- ==================== TOP BAR ====================
 local TopBar = new("Frame", {
-    Size = UDim2.new(1, 0, 0, 44),
+    Name = "TopBar",
+    Size = UDim2.new(1, 0, 0, 46),
     BackgroundColor3 = T.Panel,
     BorderSizePixel = 0,
     ZIndex = 11,
@@ -157,7 +194,7 @@ new("Frame", {
     Parent = TopBar,
 })
 
-local dot = new("Frame", {
+local logoDot = new("Frame", {
     Size = UDim2.fromOffset(8, 8),
     Position = UDim2.new(0, 18, 0.5, -4),
     BackgroundColor3 = T.Accent,
@@ -165,7 +202,7 @@ local dot = new("Frame", {
     ZIndex = 12,
     Parent = TopBar,
 })
-corner(dot, 4)
+corner(logoDot, 4)
 
 new("TextLabel", {
     Text = "Neverlose | YBA",
@@ -175,7 +212,7 @@ new("TextLabel", {
     TextXAlignment = Enum.TextXAlignment.Left,
     BackgroundTransparency = 1,
     Position = UDim2.new(0, 34, 0, 0),
-    Size = UDim2.new(1, -180, 1, 0),
+    Size = UDim2.new(1, -200, 1, 0),
     ZIndex = 12,
     Parent = TopBar,
 })
@@ -187,12 +224,22 @@ local keyHint = new("TextLabel", {
     TextColor3 = T.Sub,
     BackgroundColor3 = T.PanelLt,
     TextXAlignment = Enum.TextXAlignment.Center,
-    Position = UDim2.new(1, -90, 0.5, -9),
-    Size = UDim2.fromOffset(40, 18),
+    Position = UDim2.new(1, -100, 0.5, -9),
+    Size = UDim2.fromOffset(42, 18),
     ZIndex = 12,
     Parent = TopBar,
 })
 corner(keyHint, 4)
+
+local statusDot = new("Frame", {
+    Size = UDim2.fromOffset(6, 6),
+    Position = UDim2.new(1, -50, 0.5, -3),
+    BackgroundColor3 = T.Green,
+    BorderSizePixel = 0,
+    ZIndex = 12,
+    Parent = TopBar,
+})
+corner(statusDot, 3)
 
 local CloseBtn = new("TextButton", {
     Text = "X",
@@ -207,13 +254,14 @@ local CloseBtn = new("TextButton", {
     Parent = TopBar,
 })
 corner(CloseBtn, 6)
-CloseBtn.MouseEnter:Connect(function() tween(CloseBtn, 0.15, { BackgroundColor3 = T.Red, TextColor3 = Color3.new(1,1,1) }) end)
+CloseBtn.MouseEnter:Connect(function() tween(CloseBtn, 0.15, { BackgroundColor3 = T.Red, TextColor3 = Color3.new(1, 1, 1) }) end)
 CloseBtn.MouseLeave:Connect(function() tween(CloseBtn, 0.15, { BackgroundColor3 = T.PanelLt, TextColor3 = T.Sub }) end)
 
--- Tab bar (horizontal)
+-- ==================== TAB BAR ====================
 local TabBar = new("Frame", {
-    Size = UDim2.new(1, -20, 0, 34),
-    Position = UDim2.new(0, 10, 0, 52),
+    Name = "TabBar",
+    Size = UDim2.new(1, -20, 0, 36),
+    Position = UDim2.new(0, 10, 0, 54),
     BackgroundTransparency = 1,
     ZIndex = 11,
     Parent = Main,
@@ -226,22 +274,26 @@ new("UIListLayout", {
     Parent = TabBar,
 })
 
--- Content
+-- ==================== CONTENT ====================
 local Content = new("Frame", {
-    Size = UDim2.new(1, -20, 1, -104),
-    Position = UDim2.new(0, 10, 0, 94),
+    Name = "Content",
+    Size = UDim2.new(1, -20, 1, -110),
+    Position = UDim2.new(0, 10, 0, 100),
     BackgroundColor3 = T.Panel,
     BorderSizePixel = 0,
     ZIndex = 11,
     Parent = Main,
 })
 corner(Content, 8)
+stroke(Content, T.Stroke)
 
--- Dragging
+-- ==================== DRAGGING ====================
 local dragging, dragStart, startPos
 TopBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true; dragStart = input.Position; startPos = Main.Position
+        dragging = true
+        dragStart = input.Position
+        startPos = Main.Position
     end
 end)
 TopBar.InputEnded:Connect(function(input)
@@ -250,16 +302,20 @@ end)
 UserInputService.InputChanged:Connect(function(input)
     if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
         local d = input.Position - dragStart
-        Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+        Main.Position = UDim2.new(
+            startPos.X.Scale, startPos.X.Offset + d.X,
+            startPos.Y.Scale, startPos.Y.Offset + d.Y
+        )
     end
 end)
 
-local visible = true
+-- ==================== TOGGLE ====================
+local menuVisible = true
 local function toggleMenu()
-    visible = not visible
-    Main.Visible = visible
-    Darken.Visible = visible
-    Snow.Visible = visible
+    menuVisible = not menuVisible
+    Main.Visible = menuVisible
+    Darken.Visible = menuVisible
+    Snow.Visible = menuVisible
 end
 CloseBtn.MouseButton1Click:Connect(toggleMenu)
 UserInputService.InputBegan:Connect(function(input, gpe)
@@ -269,10 +325,10 @@ UserInputService.InputBegan:Connect(function(input, gpe)
     end
 end)
 
--- Snow
+-- ==================== SNOW ====================
 local snowFolder = new("Folder", { Name = "Flakes", Parent = Snow })
 local flakes = {}
-for i = 1, 80 do
+for i = 1, 90 do
     local f = new("Frame", {
         Size = UDim2.fromOffset(math.random(2, 4), math.random(2, 4)),
         BackgroundColor3 = Color3.fromRGB(255, 255, 255),
@@ -283,10 +339,14 @@ for i = 1, 80 do
         Parent = snowFolder,
     })
     corner(f, 4)
-    table.insert(flakes, { obj = f, speed = math.random(30, 90) / 100, drift = math.random(-15, 15) / 100 })
+    table.insert(flakes, {
+        obj = f,
+        speed = math.random(30, 90) / 100,
+        drift = math.random(-15, 15) / 100,
+    })
 end
 RunService.RenderStepped:Connect(function(dt)
-    if not visible then return end
+    if not menuVisible then return end
     for _, fl in ipairs(flakes) do
         local pos = fl.obj.Position
         local y = pos.Y.Scale + fl.speed * dt
@@ -297,9 +357,9 @@ RunService.RenderStepped:Connect(function(dt)
     end
 end)
 
--- Blur loop
+-- ==================== BLUR ====================
 RunService.RenderStepped:Connect(function()
-    local target = visible and 18 or 0
+    local target = menuVisible and 18 or 0
     if math.abs(Blur.Size - target) > 0.5 then
         Blur.Size = Blur.Size + (target - Blur.Size) * 0.2
     else
@@ -331,7 +391,7 @@ local function createTab(name)
         TextColor3 = T.Sub,
         BackgroundColor3 = T.PanelLt,
         AutoButtonColor = false,
-        Size = UDim2.fromOffset(0, 30),
+        Size = UDim2.fromOffset(0, 32),
         AutomaticSize = Enum.AutomaticSize.X,
         ZIndex = 12,
         Parent = TabBar,
@@ -352,7 +412,11 @@ local function createTab(name)
         ZIndex = 12,
         Parent = Content,
     })
-    new("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder, Parent = page })
+    new("UIListLayout", {
+        Padding = UDim.new(0, 6),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Parent = page,
+    })
     new("UIPadding", { PaddingTop = UDim.new(0, 4), Parent = page })
 
     tab.Button = btn
@@ -369,55 +433,69 @@ local function createTab(name)
     table.insert(tabs, tab)
     if #tabs == 1 then selectTab(tab) end
 
-    -- ===== SECTION =====
+    -- ==================== SECTION ====================
     local section = {}
 
     local header = new("Frame", {
-        Size = UDim2.new(1, 0, 0, 24),
+        Size = UDim2.new(1, 0, 0, 26),
         BackgroundTransparency = 1,
         LayoutOrder = #page:GetChildren(),
         Parent = page,
     })
     new("TextLabel", {
-        Text = string.upper(name) .. " SECTION",
+        Text = string.upper(name),
         Font = Enum.Font.GothamBold,
         TextSize = 11,
         TextColor3 = T.Accent,
         TextXAlignment = Enum.TextXAlignment.Left,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 4, 0, 4),
+        Position = UDim2.new(0, 4, 0, 6),
         Size = UDim2.new(1, -8, 0, 16),
         Parent = header,
     })
 
+    -- Toggle
     function section:AddToggle(label, default, callback)
         local state = default and true or false
         local row = new("TextButton", {
-            Text = "", AutoButtonColor = false,
+            Text = "",
+            AutoButtonColor = false,
             Size = UDim2.new(1, 0, 0, 36),
-            BackgroundColor3 = T.PanelLt, BorderSizePixel = 0,
-            LayoutOrder = #page:GetChildren(), Parent = page,
+            BackgroundColor3 = T.PanelLt,
+            BorderSizePixel = 0,
+            LayoutOrder = #page:GetChildren(),
+            Parent = page,
         })
-        corner(row, 6); stroke(row)
+        corner(row, 6)
+        stroke(row)
 
         new("TextLabel", {
-            Text = label, Font = Enum.Font.GothamMedium, TextSize = 13, TextColor3 = T.Text,
-            TextXAlignment = Enum.TextXAlignment.Left, BackgroundTransparency = 1,
-            Position = UDim2.new(0, 14, 0, 0), Size = UDim2.new(1, -70, 1, 0), Parent = row,
+            Text = label,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 13,
+            TextColor3 = T.Text,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0, 14, 0, 0),
+            Size = UDim2.new(1, -70, 1, 0),
+            Parent = row,
         })
 
         local box = new("Frame", {
             Size = UDim2.fromOffset(38, 20),
             Position = UDim2.new(1, -52, 0.5, -10),
             BackgroundColor3 = state and T.Accent or T.Stroke,
-            BorderSizePixel = 0, Parent = row,
+            BorderSizePixel = 0,
+            Parent = row,
         })
         corner(box, 10)
 
         local knob = new("Frame", {
             Size = UDim2.fromOffset(16, 16),
             Position = state and UDim2.new(1, -18, 0, 2) or UDim2.fromOffset(2, 2),
-            BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, Parent = box,
+            BackgroundColor3 = Color3.new(1, 1, 1),
+            BorderSizePixel = 0,
+            Parent = box,
         })
         corner(knob, 8)
 
@@ -427,100 +505,145 @@ local function createTab(name)
             state = not state
             tween(box, 0.15, { BackgroundColor3 = state and T.Accent or T.Stroke })
             tween(knob, 0.15, { Position = state and UDim2.new(1, -18, 0, 2) or UDim2.fromOffset(2, 2) })
-            if callback then pcall(callback, state) end
+            if callback then try(function() callback(state) end, "toggle callback") end
         end)
 
-        return { Set = function(_, v)
-            state = v and true or false
-            box.BackgroundColor3 = state and T.Accent or T.Stroke
-            knob.Position = state and UDim2.new(1, -18, 0, 2) or UDim2.fromOffset(2, 2)
-        end }
+        return {
+            Set = function(_, v)
+                state = v and true or false
+                box.BackgroundColor3 = state and T.Accent or T.Stroke
+                knob.Position = state and UDim2.new(1, -18, 0, 2) or UDim2.fromOffset(2, 2)
+            end,
+        }
     end
 
+    -- Slider
     function section:AddSlider(label, min, max, default, callback)
         local value = default or min
         local row = new("Frame", {
             Size = UDim2.new(1, 0, 0, 48),
-            BackgroundColor3 = T.PanelLt, BorderSizePixel = 0,
-            LayoutOrder = #page:GetChildren(), Parent = page,
+            BackgroundColor3 = T.PanelLt,
+            BorderSizePixel = 0,
+            LayoutOrder = #page:GetChildren(),
+            Parent = page,
         })
-        corner(row, 6); stroke(row)
+        corner(row, 6)
+        stroke(row)
 
         new("TextLabel", {
-            Text = label, Font = Enum.Font.GothamMedium, TextSize = 13, TextColor3 = T.Text,
-            TextXAlignment = Enum.TextXAlignment.Left, BackgroundTransparency = 1,
-            Position = UDim2.new(0, 14, 0, 6), Size = UDim2.new(0.6, 0, 0, 16), Parent = row,
+            Text = label,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 13,
+            TextColor3 = T.Text,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0, 14, 0, 6),
+            Size = UDim2.new(0.6, 0, 0, 16),
+            Parent = row,
         })
+
         local valLbl = new("TextLabel", {
-            Text = tostring(value), Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = T.Accent,
-            TextXAlignment = Enum.TextXAlignment.Right, BackgroundTransparency = 1,
-            Position = UDim2.new(0.6, 0, 6, 0), Size = UDim2.new(0.4, -16, 0, 16), Parent = row,
+            Text = tostring(value),
+            Font = Enum.Font.GothamBold,
+            TextSize = 12,
+            TextColor3 = T.Accent,
+            TextXAlignment = Enum.TextXAlignment.Right,
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0.6, 0, 6, 0),
+            Size = UDim2.new(0.4, -16, 0, 16),
+            Parent = row,
         })
 
         local bar = new("Frame", {
             Size = UDim2.new(1, -28, 0, 6),
             Position = UDim2.new(0, 14, 1, -18),
-            BackgroundColor3 = T.Stroke, BorderSizePixel = 0, Parent = row,
+            BackgroundColor3 = T.Stroke,
+            BorderSizePixel = 0,
+            Parent = row,
         })
         corner(bar, 4)
+
         local fill = new("Frame", {
             Size = UDim2.new((value - min) / (max - min), 0, 1, 0),
-            BackgroundColor3 = T.Accent, BorderSizePixel = 0, Parent = bar,
+            BackgroundColor3 = T.Accent,
+            BorderSizePixel = 0,
+            Parent = bar,
         })
         corner(fill, 4)
+
         local knob = new("Frame", {
             Size = UDim2.fromOffset(12, 12),
             AnchorPoint = Vector2.new(0.5, 0.5),
             Position = UDim2.new((value - min) / (max - min), 0, 0.5, 0),
-            BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 2, Parent = bar,
+            BackgroundColor3 = Color3.new(1, 1, 1),
+            BorderSizePixel = 0,
+            ZIndex = 2,
+            Parent = bar,
         })
         corner(knob, 6)
 
-        local dragging = false
+        local draggingSlider = false
         local function update(input)
             local rel = math.clamp((input.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
             value = math.floor(min + (max - min) * rel)
             fill.Size = UDim2.new(rel, 0, 1, 0)
             knob.Position = UDim2.new(rel, 0, 0.5, 0)
             valLbl.Text = tostring(value)
-            if callback then pcall(callback, value) end
+            if callback then try(function() callback(value) end, "slider callback") end
         end
 
         bar.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = true; update(input)
+                draggingSlider = true
+                update(input)
             end
         end)
         UserInputService.InputChanged:Connect(function(input)
-            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then update(input) end
+            if draggingSlider and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                update(input)
+            end
         end)
         UserInputService.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                draggingSlider = false
+            end
         end)
 
-        return { Set = function(_, v)
-            value = math.clamp(v, min, max)
-            local rel = (value - min) / (max - min)
-            fill.Size = UDim2.new(rel, 0, 1, 0)
-            knob.Position = UDim2.new(rel, 0, 0.5, 0)
-            valLbl.Text = tostring(value)
-        end }
+        return {
+            Set = function(_, v)
+                value = math.clamp(v, min, max)
+                local rel = (value - min) / (max - min)
+                fill.Size = UDim2.new(rel, 0, 1, 0)
+                knob.Position = UDim2.new(rel, 0, 0.5, 0)
+                valLbl.Text = tostring(value)
+            end,
+        }
     end
 
+    -- Button
     function section:AddButton(label, callback)
         local btn = new("TextButton", {
-            Text = label, Font = Enum.Font.GothamMedium, TextSize = 13, TextColor3 = T.Text,
-            BackgroundColor3 = T.PanelLt, AutoButtonColor = false,
+            Text = label,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 13,
+            TextColor3 = T.Text,
+            BackgroundColor3 = T.PanelLt,
+            AutoButtonColor = false,
             Size = UDim2.new(1, 0, 0, 34),
-            LayoutOrder = #page:GetChildren(), Parent = page,
+            LayoutOrder = #page:GetChildren(),
+            Parent = page,
         })
-        corner(btn, 6); stroke(btn)
+        corner(btn, 6)
+        stroke(btn)
         btn.MouseEnter:Connect(function() tween(btn, 0.15, { BackgroundColor3 = T.PanelHover }) end)
         btn.MouseLeave:Connect(function() tween(btn, 0.15, { BackgroundColor3 = T.PanelLt }) end)
-        btn.MouseButton1Click:Connect(function() if callback then pcall(callback) end end)
+        btn.MouseButton1Click:Connect(function()
+            if callback then try(callback, "button callback") end
+        end)
         return btn
     end
 
+    -- Dropdown
     function section:AddDropdown(label, options, default, callback)
         options = options or {}
         local selected = default or options[1] or "None"
@@ -528,48 +651,75 @@ local function createTab(name)
 
         local holder = new("Frame", {
             Size = UDim2.new(1, 0, 0, 36),
-            BackgroundColor3 = T.PanelLt, BorderSizePixel = 0,
+            BackgroundColor3 = T.PanelLt,
+            BorderSizePixel = 0,
             ClipsDescendants = true,
-            LayoutOrder = #page:GetChildren(), Parent = page,
+            LayoutOrder = #page:GetChildren(),
+            Parent = page,
         })
-        corner(holder, 6); stroke(holder)
+        corner(holder, 6)
+        stroke(holder)
 
         local head = new("TextButton", {
-            Text = "", AutoButtonColor = false,
+            Text = "",
+            AutoButtonColor = false,
             Size = UDim2.new(1, 0, 0, 36),
-            BackgroundTransparency = 1, Parent = holder,
+            BackgroundTransparency = 1,
+            Parent = holder,
         })
+
         new("TextLabel", {
-            Text = label, Font = Enum.Font.GothamMedium, TextSize = 13, TextColor3 = T.Text,
-            TextXAlignment = Enum.TextXAlignment.Left, BackgroundTransparency = 1,
-            Position = UDim2.new(0, 14, 0, 0), Size = UDim2.new(0.5, 0, 1, 0), Parent = head,
+            Text = label,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 13,
+            TextColor3 = T.Text,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0, 14, 0, 0),
+            Size = UDim2.new(0.5, 0, 1, 0),
+            Parent = head,
         })
+
         local valLbl = new("TextLabel", {
-            Text = tostring(selected), Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = T.Accent,
-            TextXAlignment = Enum.TextXAlignment.Right, BackgroundTransparency = 1,
-            Position = UDim2.new(0.5, 0, 0, 0), Size = UDim2.new(0.5, -14, 1, 0), Parent = head,
+            Text = tostring(selected),
+            Font = Enum.Font.GothamBold,
+            TextSize = 12,
+            TextColor3 = T.Accent,
+            TextXAlignment = Enum.TextXAlignment.Right,
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0.5, 0, 0, 0),
+            Size = UDim2.new(0.5, -14, 1, 0),
+            Parent = head,
         })
 
         local list = new("Frame", {
             Size = UDim2.new(1, -16, 0, 0),
             Position = UDim2.new(0, 8, 0, 40),
-            BackgroundTransparency = 1, Parent = holder,
+            BackgroundTransparency = 1,
+            Parent = holder,
         })
         new("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = list })
 
         for _, opt in ipairs(options) do
             local oBtn = new("TextButton", {
-                Text = tostring(opt), Font = Enum.Font.Gotham, TextSize = 12, TextColor3 = T.Sub,
-                BackgroundColor3 = T.PanelHover, AutoButtonColor = false,
-                Size = UDim2.new(1, 0, 0, 26), Parent = list,
+                Text = tostring(opt),
+                Font = Enum.Font.Gotham,
+                TextSize = 12,
+                TextColor3 = T.Sub,
+                BackgroundColor3 = T.PanelHover,
+                AutoButtonColor = false,
+                Size = UDim2.new(1, 0, 0, 26),
+                Parent = list,
             })
             corner(oBtn, 4)
             oBtn.MouseEnter:Connect(function() tween(oBtn, 0.1, { TextColor3 = T.Text }) end)
             oBtn.MouseLeave:Connect(function() tween(oBtn, 0.1, { TextColor3 = T.Sub }) end)
             oBtn.MouseButton1Click:Connect(function()
-                selected = opt; valLbl.Text = tostring(opt); open = false
+                selected = opt
+                valLbl.Text = tostring(opt)
+                open = false
                 tween(holder, 0.2, { Size = UDim2.new(1, 0, 0, 36) })
-                if callback then pcall(callback, opt) end
+                if callback then try(function() callback(opt) end, "dropdown callback") end
             end)
         end
 
@@ -579,35 +729,161 @@ local function createTab(name)
             tween(holder, 0.2, { Size = target })
         end)
 
-        return { Set = function(_, v)
-            selected = v; valLbl.Text = tostring(v)
-            if callback then pcall(callback, v) end
-        end }
+        return {
+            Set = function(_, v)
+                selected = v
+                valLbl.Text = tostring(v)
+                if callback then try(function() callback(v) end, "dropdown callback") end
+            end,
+        }
     end
 
+    -- Textbox
+    function section:AddTextbox(label, default, callback)
+        local row = new("Frame", {
+            Size = UDim2.new(1, 0, 0, 50),
+            BackgroundColor3 = T.PanelLt,
+            BorderSizePixel = 0,
+            LayoutOrder = #page:GetChildren(),
+            Parent = page,
+        })
+        corner(row, 6)
+        stroke(row)
+
+        new("TextLabel", {
+            Text = label,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 13,
+            TextColor3 = T.Text,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0, 14, 0, 6),
+            Size = UDim2.new(1, -28, 0, 16),
+            Parent = row,
+        })
+
+        local box = new("TextBox", {
+            Text = tostring(default or ""),
+            Font = Enum.Font.Gotham,
+            TextSize = 12,
+            TextColor3 = T.Text,
+            BackgroundColor3 = T.BgDeep,
+            BorderSizePixel = 0,
+            Position = UDim2.new(0, 14, 0, 26),
+            Size = UDim2.new(1, -28, 0, 18),
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ClearTextOnFocus = false,
+            Parent = row,
+        })
+        corner(box, 4)
+
+        box.FocusLost:Connect(function()
+            if callback then try(function() callback(box.Text) end, "textbox callback") end
+        end)
+
+        return {
+            Set = function(_, v) box.Text = tostring(v) end,
+            Get = function() return box.Text end,
+        }
+    end
+
+    -- Label
     function section:AddLabel(defaultText)
         local holder = new("Frame", {
             Size = UDim2.new(1, 0, 0, 46),
-            BackgroundColor3 = T.PanelLt, BorderSizePixel = 0,
-            LayoutOrder = #page:GetChildren(), Parent = page,
+            BackgroundColor3 = T.PanelLt,
+            BorderSizePixel = 0,
+            LayoutOrder = #page:GetChildren(),
+            Parent = page,
         })
-        corner(holder, 6); stroke(holder)
+        corner(holder, 6)
+        stroke(holder)
+
         local lbl = new("TextLabel", {
-            Text = defaultText or "", Font = Enum.Font.Gotham, TextSize = 12, TextColor3 = T.Text,
-            TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Center,
+            Text = defaultText or "",
+            Font = Enum.Font.Gotham,
+            TextSize = 12,
+            TextColor3 = T.Text,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextYAlignment = Enum.TextYAlignment.Center,
             BackgroundTransparency = 1,
-            Position = UDim2.new(0, 14, 0, 0), Size = UDim2.new(1, -28, 1, 0),
-            TextWrapped = true, Parent = holder,
+            Position = UDim2.new(0, 14, 0, 0),
+            Size = UDim2.new(1, -28, 1, 0),
+            TextWrapped = true,
+            Parent = holder,
         })
-        return { SetText = function(_, text) lbl.Text = text end }
+
+        return {
+            SetText = function(_, text) lbl.Text = text end,
+            Instance = holder,
+        }
+    end
+
+    -- Keybind
+    function section:AddKeybind(label, default, callback)
+        local key = default or Enum.KeyCode.RightShift
+        local listening = false
+
+        local row = new("TextButton", {
+            Text = "",
+            AutoButtonColor = false,
+            Size = UDim2.new(1, 0, 0, 36),
+            BackgroundColor3 = T.PanelLt,
+            BorderSizePixel = 0,
+            LayoutOrder = #page:GetChildren(),
+            Parent = page,
+        })
+        corner(row, 6)
+        stroke(row)
+
+        new("TextLabel", {
+            Text = label,
+            Font = Enum.Font.GothamMedium,
+            TextSize = 13,
+            TextColor3 = T.Text,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0, 14, 0, 0),
+            Size = UDim2.new(0.5, 0, 1, 0),
+            Parent = row,
+        })
+
+        local keyLbl = new("TextLabel", {
+            Text = key.Name,
+            Font = Enum.Font.GothamBold,
+            TextSize = 12,
+            TextColor3 = T.Accent,
+            TextXAlignment = Enum.TextXAlignment.Right,
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0.5, 0, 0, 0),
+            Size = UDim2.new(0.5, -14, 1, 0),
+            Parent = row,
+        })
+
+        row.MouseButton1Click:Connect(function()
+            listening = true
+            keyLbl.Text = "..."
+        end)
+
+        UserInputService.InputBegan:Connect(function(input, gpe)
+            if gpe then return end
+            if listening and input.UserInputType == Enum.UserInputType.Keyboard then
+                key = input.KeyCode
+                keyLbl.Text = key.Name
+                listening = false
+                if callback then try(function() callback(key) end, "keybind callback") end
+            end
+        end)
+
+        return {
+            Get = function() return key end,
+        }
     end
 
     return section
 end
 
--- ==================== BUILD TABS ====================
-
--- FARM
+-- ==================== FARM TAB ====================
 if farm then
     local ft = createTab("Farm")
     local fs = ft:AddSection("Autofarm")
@@ -618,38 +894,54 @@ if farm then
     fs:AddToggle("Noclip", true, function(s) farm:SetNoclip(s) end)
     fs:AddToggle("Camera Noclip", false, function(s) farm:SetCameraNoclip(s) end)
     fs:AddToggle("Random TP", true, function(s) farm:SetConfig("RandomTP", s) end)
-    fs:AddToggle("Auto Sell", farm.Config.AutoSell, function(s)
-        farm:SetConfig("AutoSell", s); farm:SaveConfig()
+    fs:AddToggle("Auto Sell", farm.Config and farm.Config.AutoSell or false, function(s)
+        farm:SetConfig("AutoSell", s)
+        farm:SaveConfig()
     end)
-    fs:AddToggle("Server Hop", farm.Config.ServerHop, function(s)
-        farm:SetConfig("ServerHop", s); farm:SaveConfig()
+    fs:AddToggle("Server Hop", farm.Config and farm.Config.ServerHop or false, function(s)
+        farm:SetConfig("ServerHop", s)
+        farm:SaveConfig()
         if s then farm:StartServerHopLoop() else farm:StopServerHopLoop() end
     end)
-    fs:AddSlider("TP Offset", 0, 15, farm.Config.TPOffset, function(v) farm:SetConfig("TPOffset", v); farm:SaveConfig() end)
-    fs:AddSlider("E Hold Time x10", 0, 50, math.floor(farm.Config.EHoldTime * 10), function(v) farm:SetConfig("EHoldTime", v / 10); farm:SaveConfig() end)
-    fs:AddSlider("E Range", 10, 200, farm.Config.ERange, function(v) farm:SetConfig("ERange", v); farm:SaveConfig() end)
-    fs:AddSlider("TP Speed x10", 1, 50, math.floor(farm.Config.TPSpeed * 10), function(v) farm:SetConfig("TPSpeed", v / 10); farm:SaveConfig() end)
+    fs:AddSlider("TP Offset", 0, 15, (farm.Config and farm.Config.TPOffset) or 6, function(v)
+        farm:SetConfig("TPOffset", v); farm:SaveConfig()
+    end)
+    fs:AddSlider("E Hold Time x10", 0, 50, math.floor(((farm.Config and farm.Config.EHoldTime) or 1) * 10), function(v)
+        farm:SetConfig("EHoldTime", v / 10); farm:SaveConfig()
+    end)
+    fs:AddSlider("E Range", 10, 200, (farm.Config and farm.Config.ERange) or 50, function(v)
+        farm:SetConfig("ERange", v); farm:SaveConfig()
+    end)
+    fs:AddSlider("TP Speed x10", 1, 50, math.floor(((farm.Config and farm.Config.TPSpeed) or 1.1) * 10), function(v)
+        farm:SetConfig("TPSpeed", v / 10); farm:SaveConfig()
+    end)
     fs:AddButton("TP to Merchant", function() farm:TeleportToMerchant() end)
     fs:AddButton("Save Config", function() farm:SaveConfig() end)
 
     -- OPTIMIZATION
-    local ot = createTab("Optimization")
-    local os = ot:AddSection("Performance")
+    if farm.Config then
+        local ot = createTab("Optimization")
+        local os = ot:AddSection("Performance")
 
-    os:AddSlider("FPS Cap", 30, 240, farm.Config.FPSCap, function(v)
-        farm:SetConfig("FPSCap", v); farm:ApplyFPSCap(v); farm:SaveConfig()
-    end)
-    os:AddSlider("Render Distance", 1, 20, farm.Config.RenderDistance, function(v)
-        farm:SetConfig("RenderDistance", v); farm:ApplyRenderDistance(v); farm:SaveConfig()
-    end)
-    os:AddToggle("Remove Trees/Bushes", farm.Config.RemoveTrees, function(s)
-        farm:SetConfig("RemoveTrees", s)
-        if s then farm:RemoveTreesAndBushes() end
-        farm:SaveConfig()
-    end)
+        os:AddSlider("FPS Cap", 30, 240, farm.Config.FPSCap or 60, function(v)
+            farm:SetConfig("FPSCap", v)
+            farm:ApplyFPSCap(v)
+            farm:SaveConfig()
+        end)
+        os:AddSlider("Render Distance", 1, 20, farm.Config.RenderDistance or 5, function(v)
+            farm:SetConfig("RenderDistance", v)
+            farm:ApplyRenderDistance(v)
+            farm:SaveConfig()
+        end)
+        os:AddToggle("Remove Trees/Bushes", farm.Config.RemoveTrees or false, function(s)
+            farm:SetConfig("RemoveTrees", s)
+            if s then farm:RemoveTreesAndBushes() end
+            farm:SaveConfig()
+        end)
+    end
 end
 
--- VISUALS
+-- ==================== VISUALS TAB ====================
 if visuals then
     local vt = createTab("Visuals")
     local vs = vt:AddSection("Players")
@@ -657,16 +949,20 @@ if visuals then
     vs:AddToggle("3D OFF", false, function(s) visuals:Set3DOff(s) end)
 end
 
--- PLAYER
+-- ==================== PLAYER TAB ====================
 if playerMod or invis then
     local pt = createTab("Player")
+
     if playerMod then
         local ps = pt:AddSection("Movement")
         ps:AddToggle("Noclip", false, function(s) playerMod:SetNoclip(s) end)
         ps:AddToggle("Fly", false, function(s) playerMod:SetFly(s) end)
-        ps:AddSlider("Fly Speed x10", 1, 100, 10, function(v) playerMod:SetFlySpeed(v / 10) end)
+        ps:AddSlider("Fly Speed x10", 1, 100, 10, function(v)
+            playerMod:SetFlySpeed(v / 10)
+        end)
         ps:AddToggle("Click TP (Tool)", false, function(s) playerMod:SetClickTP(s) end)
     end
+
     if invis then
         local isec = pt:AddSection("Invisibility")
         isec:AddToggle("Invisible", false, function(s) invis:SetEnabled(s) end)
@@ -675,14 +971,18 @@ if playerMod or invis then
     end
 end
 
--- SF
+-- ==================== SF TAB ====================
 if sf then
     local st = createTab("SF")
     local ss = st:AddSection("Selected Players")
+
     local playerNames = sf:GetPlayerNames()
     local selDropdown = playerNames[1] or ""
 
-    ss:AddDropdown("Player", playerNames, playerNames[1] or "None", function(v) selDropdown = v end)
+    ss:AddDropdown("Player", playerNames, playerNames[1] or "None", function(v)
+        selDropdown = v
+    end)
+
     ss:AddButton("Select", function()
         if selDropdown and selDropdown ~= "" then
             local list = sf:GetSelected()
@@ -691,7 +991,9 @@ if sf then
         end
     end)
     ss:AddButton("Deselect", function()
-        if selDropdown and selDropdown ~= "" then sf:Deselect(selDropdown) end
+        if selDropdown and selDropdown ~= "" then
+            sf:Deselect(selDropdown)
+        end
     end)
     ss:AddButton("Clear All", function() sf:ClearSelected() end)
     ss:AddButton("Apply Hitbox", function()
@@ -702,17 +1004,18 @@ if sf then
     end)
 end
 
--- WEATHER
+-- ==================== WEATHER TAB ====================
 if weather then
     local wt = createTab("Weather")
     local ws = wt:AddSection("Weather")
+
     for _, w in ipairs(weather:GetOptions()) do
         ws:AddButton("Set " .. w, function() weather:Set(w) end)
     end
     ws:AddButton("Cycle", function() weather:Cycle() end)
 end
 
--- STATS
+-- ==================== STATS TAB ====================
 if farm then
     local stt = createTab("Stats")
     local sts = stt:AddSection("Session")
@@ -720,22 +1023,34 @@ if farm then
 
     local function refresh()
         local s = farm:GetStats()
-        statLbl:SetText(string.format("Picked: %d | TP: %d\nLast: %s", s.totalPicked, s.totalTPs, s.lastPickedItem))
+        if not s then return end
+        statLbl:SetText(string.format(
+            "Picked: %d | TP: %d\nLast: %s",
+            s.totalPicked or 0, s.totalTPs or 0, s.lastPickedItem or "-"
+        ))
     end
+
     task.spawn(function()
-        while true do pcall(refresh); task.wait(0.5) end
+        while true do
+            try(refresh, "stats refresh")
+            task.wait(0.5)
+        end
     end)
+
     farm:SetCallback("OnStatsUpdate", refresh)
     farm:SetCallback("OnPickup", refresh)
 end
 
-print("[Void] Menu loaded. Press TAB or RightShift.")
-
--- Apply saved
+-- ==================== APPLY SAVED CONFIG ====================
 if farm then
-    if farm.Config.FPSCap then try(function() farm:ApplyFPSCap(farm.Config.FPSCap) end, "ApplyFPSCap") end
-    if farm.Config.RenderDistance then try(function() farm:ApplyRenderDistance(farm.Config.RenderDistance) end, "ApplyRD") end
-    if farm.Config.RemoveTrees then try(function() farm:RemoveTreesAndBushes() end, "RemoveTrees") end
-    if farm.Config.ServerHop then try(function() farm:StartServerHopLoop() end, "ServerHop") end
-    if weather then try(function() farm:SetWeather(weather:GetCurrent() or "Sunny") end, "SetWeather") end
+    if farm.Config then
+        if farm.Config.FPSCap then try(function() farm:ApplyFPSCap(farm.Config.FPSCap) end, "ApplyFPSCap") end
+        if farm.Config.RenderDistance then try(function() farm:ApplyRenderDistance(farm.Config.RenderDistance) end, "ApplyRenderDist") end
+        if farm.Config.RemoveTrees then try(function() farm:RemoveTreesAndBushes() end, "RemoveTrees") end
+        if farm.Config.ServerHop then try(function() farm:StartServerHopLoop() end, "ServerHop") end
+        if weather then try(function() farm:SetWeather(weather:GetCurrent() or "Sunny") end, "SetWeather") end
+    end
 end
+
+-- ==================== DONE ====================
+print("[Void] Menu loaded successfully. Press TAB or RightShift.")
