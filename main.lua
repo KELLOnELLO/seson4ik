@@ -62,7 +62,7 @@ farmSec:AddSlider("TP Offset", 0, 15, farm.Config.TPOffset, function(v)
     farm:SaveConfig()
 end)
 
-farmSec:AddSlider("E Hold Time", 0, 5, math.floor(farm.Config.EHoldTime * 10), function(v)
+farmSec:AddSlider("E Hold Time (ms/100)", 0, 50, math.floor(farm.Config.EHoldTime * 10), function(v)
     farm:SetConfig("EHoldTime", v / 10)
     farm:SaveConfig()
 end)
@@ -72,7 +72,7 @@ farmSec:AddSlider("E Range", 10, 200, farm.Config.ERange, function(v)
     farm:SaveConfig()
 end)
 
-farmSec:AddSlider("TP Speed", 1, 50, math.floor(farm.Config.TPSpeed * 10), function(v)
+farmSec:AddSlider("TP Speed (ms/10)", 1, 50, math.floor(farm.Config.TPSpeed * 10), function(v)
     farm:SetConfig("TPSpeed", v / 10)
     farm:SaveConfig()
 end)
@@ -128,7 +128,7 @@ plSec:AddToggle("Fly", false, function(state)
     playerMod:SetFly(state)
 end)
 
-plSec:AddSlider("Fly Speed", 1, 100, 10, function(v)
+plSec:AddSlider("Fly Speed (x10)", 1, 100, 10, function(v)
     playerMod:SetFlySpeed(v / 10)
 end)
 
@@ -154,29 +154,24 @@ local sfTab = win:CreateTab("SF")
 local sfSec = sfTab:AddSection("Selected Players")
 
 local playerNames = sf:GetPlayerNames()
-local selectedPlayers = {}
+local selectedDropdownValue = playerNames[1] or ""
 
-local function refreshPlayerList()
-    local newNames = sf:GetPlayerNames()
-    if #newNames > 0 then
-        playerNames = newNames
-    end
-end
-
-sfSec:AddDropdown("Player", playerNames, playerNames[1], function(value)
-    refreshPlayerList()
+sfSec:AddDropdown("Player", playerNames, playerNames[1] or "None", function(value)
+    selectedDropdownValue = value
 end)
 
 sfSec:AddButton("Select", function()
-    if playerNames[1] then
-        selectedPlayers = sf:GetSelected()
-        table.insert(selectedPlayers, playerNames[1])
-        sf:SetSelected(selectedPlayers)
+    if selectedDropdownValue and selectedDropdownValue ~= "" then
+        local list = sf:GetSelected()
+        table.insert(list, selectedDropdownValue)
+        sf:SetSelected(list)
     end
 end)
 
 sfSec:AddButton("Deselect", function()
-    sf:Deselect(playerNames[1])
+    if selectedDropdownValue and selectedDropdownValue ~= "" then
+        sf:Deselect(selectedDropdownValue)
+    end
 end)
 
 sfSec:AddButton("Clear All", function()
@@ -188,6 +183,10 @@ sfSec:AddButton("Apply Hitbox", function()
         local plr = Players:FindFirstChild(name)
         if plr then sf:ApplyHitbox(plr) end
     end
+end)
+
+sfSec:AddButton("Refresh List", function()
+    playerNames = sf:GetPlayerNames()
 end)
 
 local weatherTab = win:CreateTab("Weather")
@@ -208,22 +207,18 @@ end)
 local statsTab = win:CreateTab("Stats")
 local statsSec = statsTab:AddSection("Session")
 
-local statsLabel = nil
+local statsLabel = statsSec:AddLabel("Session", "Picked: 0 | TP: 0\nLast: -")
 
 local function refreshStats()
     local s = farm:GetStats()
     local text = string.format(
-        "Собрано: %d | ТП: %d\nПоследний: %s",
+        "Picked: %d | TP: %d\nLast: %s",
         s.totalPicked,
         s.totalTPs,
         s.lastPickedItem
     )
-    if statsLabel then
-        statsLabel:SetText(text)
-    end
+    statsLabel:SetText(text)
 end
-
-statsLabel = statsSec:AddLabel("Session", "Собрано: 0 | ТП: 0\nПоследний: —")
 
 task.spawn(function()
     while true do
@@ -234,30 +229,21 @@ end)
 
 farm:SetCallback("OnStatsUpdate", function()
     refreshStats()
-end)
-
-farm:SetCallback("OnPickup", function(name, stats)
-    refreshStats()
-end)
-
-visuals:SetCallback("On3DUpdate", function(stats, itemsText)
     if visuals:Is3DOff() then
         visuals:Update3DOverlay(farm:GetStats(), farm:GetItemsListText())
     end
 end)
 
-local statsLabel = statsSec:AddLabel("Session", "Собрано: 0 | ТП: 0\nПоследний: —")
+farm:SetCallback("OnPickup", function(name, stats)
+    refreshStats()
+    if visuals:Is3DOff() then
+        visuals:Update3DOverlay(farm:GetStats(), farm:GetItemsListText())
+    end
+end)
 
-local function refreshStats()
-    local s = farm:GetStats()
-    local text = string.format(
-        "Собрано: %d | ТП: %d\nПоследний: %s",
-        s.totalPicked,
-        s.totalTPs,
-        s.lastPickedItem
-    )
-    statsLabel:SetText(text)
-end
+visuals:SetCallback("On3DCreate", function()
+    visuals:Update3DOverlay(farm:GetStats(), farm:GetItemsListText())
+end)
 
 if farm.Config.FPSCap then farm:ApplyFPSCap(farm.Config.FPSCap) end
 if farm.Config.RenderDistance then farm:ApplyRenderDistance(farm.Config.RenderDistance) end
@@ -265,9 +251,3 @@ if farm.Config.RemoveTrees then farm:RemoveTreesAndBushes() end
 if farm.Config.ServerHop then farm:StartServerHopLoop() end
 
 farm:SetWeather(weather:GetCurrent() or "Sunny")
-
-visuals:SetCallback("On3DCreate", function()
-    if visuals:Is3DOff() then
-        visuals:Update3DOverlay(farm:GetStats(), farm:GetItemsListText())
-    end
-end)
